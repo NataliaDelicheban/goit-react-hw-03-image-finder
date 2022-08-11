@@ -1,75 +1,74 @@
 import React, { Component } from "react";
-import api from '../service/image-service';
+import getImages from '../service/image-service';
+import { ToastContainer } from 'react-toastify';
 import { Searchbar } from "./Searchbar/Searchbar";
 import { ImageGallery } from "./ImageGallery/ImageGallery";
-import { ImageGalleryItem } from "./ImageGalleryItem/ImageGalleryItem";
 import { Button } from "./Button/Button";
 import { Loader } from "./Loader/Loader";
 import { Modal } from "./Modal/Modal";
 
 export class App extends Component {
   state = {
+    query: '',
     images: [],
     page: 1,
-    query: '',
-    isVisible: false,
-    error: null,
+    // totalHits: null,
     isLoading: false,
     isOpen: false,
-    modalImage: '',
+    largeImageURL: null,
   }
 
-  componentDidUpdate(prevProps, prevState) {
+  async componentDidUpdate(prevProps, prevState) {
     const { query, page } = this.state;
     if (prevState.query !== query || prevState.page !== page) {
-      this.setState({ isLoading: true });
-
-      api.getImages(query, page)
-        .then(data => {
-          this.setState(prevState => ({
-            images: [...prevState.images, ...data.photos],
-            page: data.page,
-            isVisible:
-              data.page < Math.ceil(data.total_results / data.per_page),
-          }));
-        })
-        .catch(error => {
-          this.setState({ error: error.message });
-        })
-        .finally(() => this.setState({ isLoading: false }));
+      try {
+        this.setState({ isLoading: true });
+        const data = await getImages(query, page);
+        this.setState(prevState => ({
+          images: [...prevState.images, ...data.hits],
+        }));
+      } catch (error) {
+      } finally {
+        this.setState({ isLoading: false });
+      }
     }
   }
 
+  toggleModal = () => {
+    this.setState(({ isOpen }) => ({
+      isOpen: !isOpen,
+      largeImageURL: null,
+    }));
+  }
+
+  setlargeImageURL = (largeUrl) => {
+    this.setState({ largeImageURL: largeUrl });
+  }
+
+  onSubmit = query => {
+    this.setState({
+      images: [],
+      page: 1,
+      query,
+    });
+  };
+
   handleClick = () => {
-    // console.log('click');
     this.setState(prevState => ({
       page: prevState.page + 1,
     }));
   };
 
-  onSubmit = data => {
-    this.setState({
-      images: [],
-      query: data,
-      page: 1,
-    });
-  };
-
-  openModal = modalImage => {
-    this.setState({
-      isOpen: true,
-      modalImage: modalImage,
-    });
-  };
-
-  closeModal = () => {
-    this.setState({
-      isOpen: false,
-    });
-  };
-
+  showBtnLoadMore = () => {
+    const { images, page } = this.state;
+    return (
+      images.length !== 0 &&
+      page * 12 <= images.length
+    );
+  }
+  
   render() {
-    const { images, isVisible, error, isLoading, isOpen, modalImage } = this.state;
+    const { images, isLoading, largeImageURL, query } = this.state;
     return (
       <div
         style={{
@@ -80,51 +79,23 @@ export class App extends Component {
         }}
       >
         <Searchbar onSubmit={this.onSubmit} />
-
-        {images.length === 0 && !error && (
-          alert `Sorry, there are not images!`
+        
+        {images.length !== 0 && (
+          <ImageGallery images={images} onClick={this.setlargeImageURL} />)}
+                
+        { this.showBtnLoadMore() && (
+          <Button onClick={this.handleClick} />
         )}
 
-        {error && (
-          alert `Something went wrong - ${error}`
-        )}
-
-        <ImageGallery>
-        {images.map(({ id, alt, src }) => {
-                return (
-                    <ImageGalleryItem key={id}>
-                        <img
-                            src={src.webformatURL}
-                            alt={alt}
-                            onClick={() => this.openModal(src.largeImageURL)}
-                        />
-                    </ImageGalleryItem>
-                )
-            } 
-            )}
-        </ImageGallery>
-
-        {isVisible && (
-          <Button disabled={isLoading} onClick={this.handleClick}>
-            {isLoading ?
-              <Audio
-                height = "80"
-                width = "80"
-                radius = "9"
-                color = 'green'
-                ariaLabel = 'three-dots-loading'     
-                wrapperStyle
-                wrapperClass
-              />
-              : 'Load More'}
-          </Button>
-        )}
-
-        {isOpen && (
-          <Modal onClose={this.closeModal}>
-            <img src={modalImage} alt="modal img" />
+        {largeImageURL && (
+          <Modal onClose={this.toggleModal}>
+            <img src={largeImageURL} alt={query} />
           </Modal>
         )}
+      
+        <Loader visible={isLoading} />
+
+        <ToastContainer autoClose={1500} />
       </div>
     );
   }
