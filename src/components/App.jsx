@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import getImages from '../service/image-service';
-import { ToastContainer } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import { Searchbar } from "./Searchbar/Searchbar";
 import { ImageGallery } from "./ImageGallery/ImageGallery";
 import { Button } from "./Button/Button";
@@ -12,7 +12,6 @@ export class App extends Component {
     query: '',
     images: [],
     page: 1,
-    // totalHits: null,
     isLoading: false,
     isOpen: false,
     largeImageURL: null,
@@ -27,6 +26,11 @@ export class App extends Component {
         this.setState(prevState => ({
           images: [...prevState.images, ...data.hits],
         }));
+
+        if (data.total === 0)
+          toast.warn(
+            `Invalid request. Please try again`
+          );
       } catch (error) {
       } finally {
         this.setState({ isLoading: false });
